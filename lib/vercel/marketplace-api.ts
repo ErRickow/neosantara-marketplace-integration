@@ -174,6 +174,7 @@ const IntegrationsSsoTokenResponse = z.object({
 
 export async function exchangeCodeForToken(
   code: string,
+  redirectUri: string,
   state: string | null | undefined
 ): Promise<string> {
   const { id_token } = IntegrationsSsoTokenResponse.parse(
@@ -181,6 +182,7 @@ export async function exchangeCodeForToken(
       method: "POST",
       data: {
         code,
+        redirect_uri: redirectUri,
         state: state ?? undefined,
         client_id: env.INTEGRATION_CLIENT_ID,
         client_secret: env.INTEGRATION_CLIENT_SECRET,

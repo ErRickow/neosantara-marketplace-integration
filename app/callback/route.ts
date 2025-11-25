@@ -14,7 +14,8 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  const token = await exchangeCodeForToken(code, state);
+  const redirectUri = `${host}/callback`;
+  const token = await exchangeCodeForToken(code, redirectUri, state);
 
   createSession(token);
 
