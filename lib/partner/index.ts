@@ -24,6 +24,12 @@ import {
   getInvoice,
   importResource as importResourceToVercelApi,
 } from "../vercel/marketplace-api";
+import { getVercelUser } from "../vercel/external-api";
+import {
+  provisionNeosantaraUser,
+  deactivateNeosantaraKey,
+  updateNeosantaraTier,
+} from "./neosantara";
 
 const billingPlans: BillingPlan[] = [
   {
@@ -142,38 +148,75 @@ export async function provisionResource(
   if (!billingPlan) {
     throw new Error(`Unknown billing plan ${request.billingPlanId}`);
   }
+
+  // Get installation to access user credentials
+  const installation = await getInstallation(installationId);
+
+  // Fetch Vercel user info using access token
+  const vercelUser = await getVercelUser(installation.credentials.access_token);
+
+  // Determine tier name from billing plan ID
+  // Plan IDs from billing endpoint: 'free', 'basic', 'standard', 'pro', etc.
+  const tierName = billingPlan.name; // e.g., 'Free', 'Pro', 'Enterprise'
+
+  // Provision user in Neosantara (creates or links existing user by email)
+  const neosantaraResponse = await provisionNeosantaraUser(
+    vercelUser.email,
+    vercelUser.id,
+    null, // teamId - would need to be fetched if available
+    vercelUser.username,
+    tierName
+  );
+
+  if (!neosantaraResponse.status) {
+    throw new Error('Failed to provision Neosantara user');
+  }
+
+  const { apiKey, user: neosantaraUser, isNewUser } = neosantaraResponse.data;
+
+  // Create resource with Neosantara data
   const resource = {
     id: nanoid(),
-    status: "ready",
+    status: "ready" as const,
     name: request.name,
     billingPlan,
-    metadata: request.metadata,
+    metadata: {
+      ...request.metadata,
+      // Store Neosantara user info for reference
+      neosantaraUserId: neosantaraUser.id,
+      neosantaraEmail: neosantaraUser.email,
+      neosantaraUsername: neosantaraUser.username,
+      isNewUser,
+    },
     productId: request.productId,
   } satisfies Resource;
 
+  // Store in Redis
   await kv.set(
     `${installationId}:resource:${resource.id}`,
     serializeResource(resource),
   );
+
+  // Store API key separately for easy lookup (for deletion)
+  await kv.set(
+    `${installationId}:resource:${resource.id}:apikey`,
+    apiKey
+  );
+
   await kv.lpush(`${installationId}:resources`, resource.id);
   await updateInstallation(installationId, request.billingPlanId);
 
-  const currentDate = new Date().toISOString();
-
+  // Return resource with Neosantara API key as secret
   return {
     ...resource,
-
     secrets: [
       {
-        name: "TOP_SECRET",
-        value: `birds aren't real (${currentDate})`,
-        environmentOverrides:
-          resource.productId === "with-env-override"
-            ? {
-                production: `birds ARE real (${currentDate})`,
-                preview: `birds ARE real (${currentDate})`,
-              }
-            : undefined,
+        name: "NEOSANTARA_API_KEY",
+        value: apiKey,
+      },
+      {
+        name: "NEOSANTARA_BASE_URL",
+        value: "https://api.neosantara.xyz",
       },
     ],
   };
@@ -192,12 +235,27 @@ export async function updateResource(
 
   const { billingPlanId, ...updatedFields } = request;
 
+  const nextBillingPlan = billingPlanId
+    ? (billingPlanMap.get(billingPlanId) ?? resource.billingPlan)
+    : resource.billingPlan;
+
+  // If billing plan changed, update tier in Neosantara
+  if (billingPlanId && nextBillingPlan.id !== resource.billingPlan.id) {
+    const neosantaraUserId = resource.metadata?.neosantaraUserId as string | undefined;
+
+    if (neosantaraUserId && typeof neosantaraUserId === 'string') {
+      try {
+        await updateNeosantaraTier(neosantaraUserId, nextBillingPlan.name);
+      } catch (error) {
+        throw new Error('Failed to update tier in Neosantara API');
+      }
+    }
+  }
+
   const nextResource = {
     ...resource,
     ...updatedFields,
-    billingPlan: billingPlanId
-      ? (billingPlanMap.get(billingPlanId) ?? resource.billingPlan)
-      : resource.billingPlan,
+    billingPlan: nextBillingPlan,
   };
 
   await kv.set(
@@ -253,8 +311,24 @@ export async function deleteResource(
   installationId: string,
   resourceId: string,
 ): Promise<void> {
+  // Get API key before deletion
+  const apiKey = await kv.get<string>(
+    `${installationId}:resource:${resourceId}:apikey`
+  );
+
+  // Deactivate API key in Neosantara if it exists
+  if (apiKey) {
+    try {
+      await deactivateNeosantaraKey(apiKey);
+    } catch (error) {
+      // Continue with deletion even if deactivation fails
+    }
+  }
+
+  // Delete from Redis
   const pipeline = kv.pipeline();
   pipeline.del(`${installationId}:resource:${resourceId}`);
+  pipeline.del(`${installationId}:resource:${resourceId}:apikey`);
   pipeline.lrem(`${installationId}:resources`, 0, resourceId);
   await pipeline.exec();
 }

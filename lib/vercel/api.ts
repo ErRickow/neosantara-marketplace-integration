@@ -28,14 +28,7 @@ export async function fetchVercelApi(
 
   const url = `https://vercel.com/api${path}`;
 
-  console.log(`>> ${options.method || "GET"} ${url}`);
   const res = await fetch(url, options);
-
-  console.log(
-    `<< ${options.method || "GET"} ${url} ${res.status} ${
-      res.statusText
-    } ${res.headers.get("X-Vercel-Id")}`,
-  );
 
   if (!res.ok) {
     throw new Error(

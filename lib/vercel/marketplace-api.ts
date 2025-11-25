@@ -312,7 +312,6 @@ export async function submitInvoice(
       amount: discount.amount,
     })),
   };
-  console.log("Submitting invoice:", invoiceRequest);
   return (await fetchVercelApi(
     `/v1/installations/${installationId}/billing/invoices`,
     {

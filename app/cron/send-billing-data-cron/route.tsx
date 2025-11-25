@@ -30,8 +30,6 @@ export const GET = cronJob(async (request: Request) => {
         ].filter((x) => x !== null),
       )
     ).filter((x) => x !== null) as Balance[];
-    console.log("Sending billing data: ", installationId, data);
-    console.log("Sending balances: ", installationId, balances);
     let error: string | undefined;
     if (!dryRun) {
       try {

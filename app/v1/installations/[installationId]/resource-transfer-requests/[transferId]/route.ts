@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { daleteTransferRequest, getTransferRequest, setTransferRequest } from '@/lib/partner';
 import { Claim, createClaimRequestSchema } from '@/lib/vercel/schemas';
 import { Params } from '../utils';
@@ -6,9 +6,10 @@ import { withAuth } from '@/lib/vercel/auth';
 import { buildError, readRequestBodyWithSchema } from '@/lib/utils';
 
 export const PUT = withAuth(
-    async (oidcClaims, request, { params }: { params: Params }) => {
+    async (oidcClaims, request: NextRequest, { params }: { params: Promise<Params> }) => {
+        const { transferId } = await params;
         const matchingClaim = await getTransferRequest(
-            params.transferId,
+            transferId,
         );
         
         if (matchingClaim) {
@@ -28,7 +29,7 @@ export const PUT = withAuth(
         var expirationDate = new Date();
         expirationDate.setDate(expirationDate.getDate() + 7);
         const newClaim: Claim = {
-            transferId: params.transferId,
+            transferId: transferId,
             status: 'unclaimed',
             sourceInstallationId: oidcClaims.installation_id, 
             expiration: data.expiration,
@@ -43,9 +44,10 @@ export const PUT = withAuth(
 
 // NOTE - this GET is not part of the spec but makes it much easier to test
 export const GET = withAuth(
-    async (_oidcClaims, _request, { params }: { params: Params }) => {
+    async (_oidcClaims, _request: NextRequest, { params }: { params: Promise<Params> }) => {
+        const { transferId } = await params;
         const matchingClaim = await getTransferRequest(
-            params.transferId,
+            transferId,
         );
 
         if (matchingClaim) {
@@ -58,9 +60,10 @@ export const GET = withAuth(
 
 // NOTE - this DELETE is not part of the spec, it exists to allow us to clean up test data
 export const DELETE = withAuth(
-    async (_oidcClaims, _request, { params }: { params: Params }) => {
+    async (_oidcClaims, _request: NextRequest, { params }: { params: Promise<Params> }) => {
+        const { transferId } = await params;
         const matchingClaim = await getTransferRequest(
-            params.transferId,
+            transferId,
         );
 
         if (!matchingClaim) {

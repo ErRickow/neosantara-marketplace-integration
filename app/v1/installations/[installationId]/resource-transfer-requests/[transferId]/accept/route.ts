@@ -1,17 +1,18 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getTransferRequest, setTransferRequest, transferResource } from '@/lib/partner';
 import { Params, validateTransferId } from '../../utils';
 import { withAuth } from '@/lib/vercel/auth';
 import { buildError } from '@/lib/utils';
 
 export const POST = withAuth(
-    async (_oidcClaims, _request, { params }: { params: Params }) => {
-        if (!validateTransferId(params.transferId)) {
+    async (_oidcClaims, _request: NextRequest, { params }: { params: Promise<Params> }) => {
+        const awaitedParams = await params;
+        if (!validateTransferId(awaitedParams.transferId)) {
             return NextResponse.json(buildError('bad_request', 'Invalid ID'), { status: 400 });
         }
 
         const matchingClaim = await getTransferRequest(
-            params.transferId,
+            awaitedParams.transferId,
         );
 
         // does claim exist?
@@ -20,12 +21,12 @@ export const POST = withAuth(
         }
     
         // does the target installation ID match?
-        if (!matchingClaim.targetInstallationIds.some(id => id === params.installationId)) {
+        if (!matchingClaim.targetInstallationIds.some(id => id === awaitedParams.installationId)) {
             return NextResponse.json(buildError('bad_request', 'Invalid target installation ID'), { status: 400 });
         }
 
         // idemoptentcy - no need to re-complete
-        if (matchingClaim.status === 'complete' && params.installationId === matchingClaim.claimedByInstallationId) {
+        if (matchingClaim.status === 'complete' && awaitedParams.installationId === matchingClaim.claimedByInstallationId) {
             return new NextResponse( null, { status: 200 });
         }
 
@@ -39,13 +40,13 @@ export const POST = withAuth(
         }
 
         for (const resourceId of matchingClaim.resourceIds) {
-          transferResource(matchingClaim.sourceInstallationId, resourceId, params.installationId);
+          transferResource(matchingClaim.sourceInstallationId, resourceId, awaitedParams.installationId);
         }
 
         await setTransferRequest({
             ...matchingClaim,
             status: 'complete',
-            claimedByInstallationId: params.installationId,
+            claimedByInstallationId: awaitedParams.installationId,
         })
 
         return new NextResponse(null, { status: 200 });

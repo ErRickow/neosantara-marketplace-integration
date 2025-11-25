@@ -45,8 +45,6 @@ export async function sendBillingDataAction() {
     )
   ).filter((x) => x !== null) as Balance[];
 
-  console.log("Send balances: ", balances);
-
   await sendBillingData(installationId, billingData);
   await submitPrepaymentBalances(installationId, balances);
 }

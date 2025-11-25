@@ -1,4 +1,5 @@
 import { withAuth } from "@/lib/vercel/auth";
+import { NextRequest, NextResponse } from "next/server";
 
 interface Params {
   installationId: string;
@@ -108,11 +109,12 @@ async function* makeIterator() {
 }
 
 export const POST = withAuth(
-  async (_claims, request, { params }: { params: Params }) => {
+  async (_claims, request: NextRequest, { params }: { params: Promise<Params> }) => {
+    await params;
     const body: PostResourceREPLRequestBody = await request.json();
 
     if (body.input.includes("throw")) {
-      return Response.json(
+      return NextResponse.json(
         {},
         {
           status: 500,
@@ -121,7 +123,7 @@ export const POST = withAuth(
     }
 
     if (body.readOnly && body.input.includes("write")) {
-      return Response.json(
+      return NextResponse.json(
         [
           {
             type: "paragraph",
@@ -142,7 +144,7 @@ export const POST = withAuth(
     }
 
     if (body.input.includes("error")) {
-      return Response.json(
+      return NextResponse.json(
         [
           {
             type: "paragraph",
@@ -163,7 +165,7 @@ export const POST = withAuth(
     }
 
     if (body.input.includes("table")) {
-      return Response.json(
+      return NextResponse.json(
         [
           {
             type: "table",
@@ -239,7 +241,7 @@ export const POST = withAuth(
       const iterator = makeIterator();
       const stream = iteratorToStream(iterator);
 
-      return new Response(stream, {
+      return new NextResponse(stream, {
         status: 200,
         headers: {
           "Content-Type": "application/jsonl",
@@ -248,7 +250,7 @@ export const POST = withAuth(
     }
 
     if (body.input.includes("help")) {
-      return Response.json(
+      return NextResponse.json(
         [
           {
             type: "paragraph",
@@ -336,7 +338,7 @@ export const POST = withAuth(
       );
     }
 
-    return Response.json(
+    return NextResponse.json(
       [
         {
           type: "paragraph",

@@ -6,7 +6,10 @@ const envSchema = z.object({
   INTEGRATION_CLIENT_SECRET: z.string().min(1),
   CRON_SECRET: z.string().min(1),
   VERCEL_EXTERNAL_REDIRECT_URI: z.string().min(1).optional(),
-}); //idk what?
+  // Neosantara API configuration
+  NEOSANTARA_API_URL: z.string().url(),
+  NEOSANTARA_INTERNAL_SECRET: z.string().min(1),
+});
 
 const parsed = envSchema.safeParse(process.env);
 

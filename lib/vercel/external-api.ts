@@ -30,3 +30,37 @@ export async function exchangeExternalCodeForToken(
     }),
   );
 }
+
+const VercelUserSchema = z.object({
+  user: z.object({
+    id: z.string(),
+    email: z.string().email(),
+    name: z.string().nullable(),
+    username: z.string(),
+  }),
+});
+
+/**
+ * Fetch authenticated user information from Vercel API
+ * Uses the access token from installation
+ */
+export async function getVercelUser(accessToken: string): Promise<{
+  id: string;
+  email: string;
+  name: string | null;
+  username: string;
+}> {
+  const response = await fetch("https://api.vercel.com/v2/user", {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch Vercel user: ${response.status}`);
+  }
+
+  const data = await response.json();
+  const parsed = VercelUserSchema.parse(data);
+  return parsed.user;
+}

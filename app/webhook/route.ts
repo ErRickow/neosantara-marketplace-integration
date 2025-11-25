@@ -30,7 +30,7 @@ export async function POST(req: Request): Promise<Response> {
   try {
     json = JSON.parse(rawBody);
   } catch (e) {
-    console.error("Failed to parse webhook event: not a json:", rawBody, e);
+    // ignore
   }
   if (!json) {
     return new Response("", { status: 200 });
@@ -40,19 +40,18 @@ export async function POST(req: Request): Promise<Response> {
   try {
     event = webhookEventSchema.parse(json);
   } catch (e) {
-    console.error("Failed to parse webhook event: unknown event:", rawBody, e);
+    // ignore
   }
   if (!event) {
     try {
       await storeWebhookEvent(unknownWebhookEventSchema.parse(json));
     } catch (e) {
-      console.error("Failed to parse webhook event: not an event:", rawBody, e);
+      // ignore
     }
     return new Response("", { status: 200 });
   }
 
   const { id, type, createdAt, payload } = event;
-  console.log("webhook event:", id, type, new Date(createdAt), payload);
   await storeWebhookEvent(event);
 
   switch (type) {
@@ -64,10 +63,6 @@ export async function POST(req: Request): Promise<Response> {
       const deploymentId = payload.deployment.id;
       const installationId = await getInstallationId(payload.installationIds);
       if (!installationId) {
-        console.error(
-          `No installations found for deployment ${deploymentId}`,
-          payload,
-        );
         break;
       }
       await fetchVercelApi(`/v1/deployments/${deploymentId}/checks`, {
@@ -85,10 +80,6 @@ export async function POST(req: Request): Promise<Response> {
       const deploymentId = payload.deployment.id;
       const installationId = await getInstallationId(payload.installationIds);
       if (!installationId) {
-        console.error(
-          `No installations found for deployment ${deploymentId}`,
-          payload,
-        );
         break;
       }
 
@@ -103,7 +94,7 @@ export async function POST(req: Request): Promise<Response> {
       const checkId = data.checks[0]?.id;
 
       if (!checkId) {
-        console.error(`No Check found for deployment ${deploymentId}`, data);
+        //
       }
 
       await fetchVercelApi(
@@ -136,10 +127,6 @@ export async function POST(req: Request): Promise<Response> {
       const deploymentId = payload.deployment.id;
       const installationId = await getInstallationId(payload.installationIds);
       if (!installationId) {
-        console.error(
-          `No installations found for deployment ${deploymentId}`,
-          payload,
-        );
         break;
       }
 
@@ -154,7 +141,7 @@ export async function POST(req: Request): Promise<Response> {
       const checkId = data.checks[0]?.id;
 
       if (!checkId) {
-        console.error(`No Check found for deployment ${deploymentId}`, data);
+        //
       }
 
       await fetchVercelApi(

@@ -1,17 +1,18 @@
 import { getTransferRequest, setTransferRequest } from '@/lib/partner';
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { Params, validateTransferId } from '../../utils';
 import { withAuth } from '@/lib/vercel/auth';
 import { buildError } from '@/lib/utils';
 
 export const POST = withAuth(
-    async (_oidcClaims, _request, { params }: { params: Params }) => {
-        if (!validateTransferId(params.transferId)) {
+    async (_oidcClaims, _request: NextRequest, { params }: { params: Promise<Params> }) => {
+        const awaitedParams = await params;
+        if (!validateTransferId(awaitedParams.transferId)) {
             return NextResponse.json(buildError('bad_request', 'Input has failed validation'), { status: 400 });
         }
 
         const matchingClaim = await getTransferRequest(
-            params.transferId,
+            awaitedParams.transferId,
         );
 
         // does claim exist?
@@ -30,7 +31,7 @@ export const POST = withAuth(
         }
 
         const targetInstallations = new Set(matchingClaim.targetInstallationIds);
-        targetInstallations.add(params.installationId);
+        targetInstallations.add(awaitedParams.installationId);
 
         await setTransferRequest({
             ...matchingClaim,

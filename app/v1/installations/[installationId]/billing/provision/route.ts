@@ -17,8 +17,6 @@ export const POST = withAuth(async (claims, request) => {
     return new Response(null, { status: 400 });
   }
 
-  console.log("provisonPurchase body: ", requestBody.data);
-
   const response = await provisionPurchase(
     claims.installation_id,
     requestBody.data,

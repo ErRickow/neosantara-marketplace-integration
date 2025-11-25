@@ -1,5 +1,6 @@
 import { getResourceBillingPlans } from "@/lib/partner";
 import { withAuth } from "@/lib/vercel/auth";
+import { NextRequest, NextResponse } from "next/server";
 
 interface Params {
   installationId: string;
@@ -7,12 +8,13 @@ interface Params {
 }
 
 export const GET = withAuth(
-  async (claims, _request, { params }: { params: Params }) => {
+  async (claims, _request: NextRequest, { params }: { params: Promise<Params> }) => {
+    const { resourceId } = await params;
     const response = await getResourceBillingPlans(
       claims.installation_id,
-      params.resourceId,
+      resourceId,
     );
 
-    return Response.json(response);
+    return NextResponse.json(response);
   },
 );

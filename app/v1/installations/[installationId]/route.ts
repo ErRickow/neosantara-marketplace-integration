@@ -1,8 +1,20 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { kv } from '@vercel/kv';
+
+interface Installation {
+  resourceId: string;
+  apiKey: string;
+  userId: string;
+  vercelUserId: string;
+  vercelTeamId: string | null;
+  configurationId: string;
+  createdAt: string;
+}
+
 export async function POST(
-  request: Request, { params }: { params: { installationId: string } }
+  request: NextRequest, { params }: { params: Promise<{ installationId: string }> }
 ) {
+  const { installationId } = await params;
   const body = await request.json();
   const { userId, teamId, configurationId, metadata } = body;
   // 1. Call Neosantara API to create user + API key
@@ -23,7 +35,7 @@ export async function POST(
   );
   const { apiKey, resourceId, user } = await provisionResponse.json();
   // 2. Store mapping in Redis
-  await kv.set(`installation:${params.installationId}`, {
+  await kv.set(`installation:${installationId}`, {
     resourceId,
     apiKey,
     userId: user.id,
@@ -42,11 +54,12 @@ export async function POST(
   });
 }
 export async function GET(
-  request: Request, { params }: { params: { installationId: string } }
+  request: NextRequest, { params }: { params: Promise<{ installationId: string }> }
 ) {
+  const { installationId } = await params;
   // Get installation details + usage stats
   const installation = await
-  kv.get(`installation:${params.installationId}`);
+  kv.get<Installation>(`installation:${installationId}`);
   if (!installation) {
     return NextResponse.json({ error: 'Not found' }, {
       status: 404
@@ -68,11 +81,12 @@ export async function GET(
   });
 }
 export async function DELETE(
-  request: Request, { params }: { params: { installationId: string } }
+  request: NextRequest, { params }: { params: Promise<{ installationId: string }> }
 ) {
+  const { installationId } = await params;
   // Deactivate API key
   const installation = await
-  kv.get(`installation:${params.installationId}`);
+  kv.get<Installation>(`installation:${installationId}`);
   if (installation) {
     await fetch(
       `${process.env.NEOSANTARA_API_URL}/internal/deactivate-key`,
@@ -85,7 +99,7 @@ export async function DELETE(
         body: JSON.stringify({ apiKey: installation.apiKey }),
       }
     );
-    await kv.del(`installation:${params.installationId}`);
+    await kv.del(`installation:${installationId}`);
   }
   return NextResponse.json({ success: true });
 }
