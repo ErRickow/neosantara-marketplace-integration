@@ -1,31 +1,28 @@
-import { getProductBillingPlans } from "@/lib/partner";
-import { readRequestBodyWithSchema } from "@/lib/utils";
-import { withAuth } from "@/lib/vercel/auth";
-import { resourceSchema } from "@/lib/vercel/schemas";
-
-interface Params {
-  productId: string;
-}
-
-export const GET = withAuth(
-  async (claims, request, { params }: { params: Params }) => {
-    const response = await getProductBillingPlans(
-      params.productId,
-      claims.installation_id,
-    );
-
-    const url = new URL(request.url);
-    const metadataQuery = url.searchParams.get("metadata");
-    if (metadataQuery) {
-      const metadata: Record<string, string> = JSON.parse(metadataQuery);
-      if (metadata.primaryRegion === "sfo1") {
-        response.plans = response.plans.map((plan) => ({
-          ...plan,
-          name: `${plan.name} (us-west-1)`,
-          description: plan.name === "Pro" ? `$9 every Gb` : plan.description,
-        }));
-      }
+import { NextResponse } from 'next/server';
+export async function GET(
+  request: Request, { params }: { params: { productId: string } }
+) {
+  // Fetch tiers from main Neosantara API
+  const response = await fetch(
+    `${process.env.NEOSANTARA_API_URL}/internal/tiers`,
+    {
+      headers: {
+        'X-Internal-Secret': process.env.NEOSANTARA_INTERNAL_SECRET!,
+      },
     }
-    return Response.json(response);
-  },
-);
+  );
+  const tiers = await response.json();
+  // Transform to Vercel Marketplace format
+  const plans = tiers.map((tier: any) => ({
+    id: tier.id,
+    name: tier.name,
+    price: calculatePrice(tier.cost_per_1k_tokens, tier.monthly_limit),
+    features: [
+      `${tier.daily_limit.toLocaleString()} tokens/day`,
+      `${tier.monthly_limit.toLocaleString()} tokens/month`,
+      'All Indonesian models',
+      tier.name === 'Pro' ? 'Priority support' : 'Community support',
+    ],
+  }));
+  return NextResponse.json({ plans });
+}
