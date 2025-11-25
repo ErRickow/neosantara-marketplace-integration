@@ -15,13 +15,13 @@ export async function GET(request: NextRequest) {
   }
 
   const redirectUri = `${host}/callback`;
-  const { access_token } = await exchangeCodeForToken(
+  const { id_token } = await exchangeCodeForToken(
     code,
     redirectUri,
     state
   );
 
-  createSession(access_token);
+  createSession(id_token);
 
   const resourceId = request.nextUrl.searchParams.get("resource_id");
   const projectId = request.nextUrl.searchParams.get("project_id");

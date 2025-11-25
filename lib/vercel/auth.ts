@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 import { env } from "../env";
-import { JWTExpired, JWTInvalid } from "jose/errors";
+import { JWTExpired, JWTInvalid, JWSInvalid } from "jose/errors";
 
 const JWKS = createRemoteJWKSet(
   new URL(`https://marketplace.vercel.com/.well-known/jwks`),
@@ -60,6 +60,10 @@ export async function verifyToken(token: string): Promise<OidcClaims> {
   } catch (err) {
     if (err instanceof JWTExpired) {
       throw new AuthError("Auth expired");
+    }
+
+    if (err instanceof JWSInvalid) {
+      throw new AuthError("Auth token is not a valid JWS");
     }
 
     if (err instanceof JWTInvalid) {

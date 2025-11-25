@@ -170,6 +170,7 @@ export async function updateSecrets(
 
 const IntegrationsTokenResponse = z.object({
   access_token: z.string(),
+  id_token: z.string(),
 });
 
 export async function exchangeCodeForToken(
