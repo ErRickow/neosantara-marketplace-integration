@@ -168,29 +168,29 @@ export async function updateSecrets(
   );
 }
 
-const IntegrationsSsoTokenResponse = z.object({
-  id_token: z.string(),
+const IntegrationsTokenResponse = z.object({
+  access_token: z.string(),
 });
 
 export async function exchangeCodeForToken(
   code: string,
   redirectUri: string,
   state: string | null | undefined
-): Promise<string> {
-  const { id_token } = IntegrationsSsoTokenResponse.parse(
-    await fetchVercelApi("/v1/integrations/sso/token", {
-      method: "POST",
-      data: {
-        code,
-        redirect_uri: redirectUri,
-        state: state ?? undefined,
-        client_id: env.INTEGRATION_CLIENT_ID,
-        client_secret: env.INTEGRATION_CLIENT_SECRET,
-      },
-    })
-  );
+): Promise<z.infer<typeof IntegrationsTokenResponse>> {
+  const response = await fetchVercelApi("/v2/oauth/access_token", {
+    method: "POST",
+    isUrlEncoded: true,
+    data: {
+      grant_type: "authorization_code",
+      code,
+      redirect_uri: redirectUri,
+      state: state ?? undefined,
+      client_id: env.INTEGRATION_CLIENT_ID,
+      client_secret: env.INTEGRATION_CLIENT_SECRET,
+    },
+  });
 
-  return id_token;
+  return IntegrationsTokenResponse.parse(response);
 }
 
 export async function importResource(

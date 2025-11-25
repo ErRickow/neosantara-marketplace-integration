@@ -2,7 +2,11 @@ import { getInstallation } from "../partner";
 
 export async function fetchVercelApi(
   path: string,
-  init?: RequestInit & { installationId?: string; data?: unknown },
+  init?: RequestInit & {
+    installationId?: string;
+    data?: unknown;
+    isUrlEncoded?: boolean;
+  }
 ): Promise<unknown> {
   const options = init || {};
 
@@ -19,11 +23,19 @@ export async function fetchVercelApi(
   }
 
   if (options.data) {
-    options.body = JSON.stringify(options.data);
-    options.headers = {
-      ...options.headers,
-      "content-type": "application/json",
-    };
+    if (options.isUrlEncoded) {
+      options.body = new URLSearchParams(options.data as any).toString();
+      options.headers = {
+        ...options.headers,
+        "content-type": "application/x-www-form-urlencoded",
+      };
+    } else {
+      options.body = JSON.stringify(options.data);
+      options.headers = {
+        ...options.headers,
+        "content-type": "application/json",
+      };
+    }
   }
 
   const url = `https://vercel.com/api${path}`;
@@ -34,7 +46,7 @@ export async function fetchVercelApi(
     throw new Error(
       `Request to Vercel API failed: ${res.status} ${
         res.statusText
-      } ${await res.text()}`,
+      } ${await res.text()}`
     );
   }
 
