@@ -181,7 +181,7 @@ export async function exchangeCodeForToken(
       method: "POST",
       data: {
         code,
-        state,
+        state: state ?? undefined,
         client_id: env.INTEGRATION_CLIENT_ID,
         client_secret: env.INTEGRATION_CLIENT_SECRET,
       },
